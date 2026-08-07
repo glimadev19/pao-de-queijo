@@ -9,7 +9,7 @@ const formatBRL = (value) => {
   }).format(value);
 };
 
-export const CardProduto = ({ product, quantity, onIncrement, onDecrement }) => {
+export const CardProduto = ({ product, quantity, onIncrement, onDecrement, onChangeQuantity }) => {
   const subtotal = product.price * quantity;
 
   return (
@@ -73,12 +73,22 @@ export const CardProduto = ({ product, quantity, onIncrement, onDecrement }) => 
             >
               <Minus size={16} strokeWidth={3} />
             </button>
-            <span
+            
+            <input
+              type="number"
               data-testid={`quantity-${product.id}`}
-              className="w-10 text-center font-display font-black text-lg text-[#2A2421] tabular-nums"
-            >
-              {quantity}
-            </span>
+              value={quantity === 0 ? '' : quantity}
+              placeholder="0"
+              min="0"
+              onChange={(e) => {
+                const valor = parseInt(e.target.value, 10);
+                // Se estiver vazio ou não for número, define como 0
+                onChangeQuantity(product.id, isNaN(valor) ? 0 : valor);
+              }}
+              aria-label={`Quantidade de ${product.name}`}
+              className="w-12 text-center font-display font-black text-lg text-[#2A2421] bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+
             <button
               data-testid={`increment-${product.id}`}
               onClick={() => onIncrement(product.id)}

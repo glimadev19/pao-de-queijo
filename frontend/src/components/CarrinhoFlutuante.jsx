@@ -35,7 +35,7 @@ export const CarrinhoFlutuante = ({ totalItems, totalPrice, onCheckout }) => {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[10px] sm:text-xs uppercase tracking-wider text-[#6A5D57] font-bold">
-                    {totalItems} {totalItems === 1 ? "item" : "itens"} · Total
+                    {totalItems} {totalItems === 1 ? "lorem" : "lorems"} · Ipsum
                   </p>
                   <p
                     data-testid="floating-cart-total"
@@ -52,8 +52,8 @@ export const CarrinhoFlutuante = ({ totalItems, totalPrice, onCheckout }) => {
                 onClick={onCheckout}
                 className="inline-flex items-center gap-1.5 sm:gap-2 bg-[#E63946] hover:bg-[#c92b38] text-white font-bold text-sm sm:text-base px-4 sm:px-6 py-2.5 sm:py-3 rounded-full shadow-md transition-colors flex-shrink-0"
               >
-                <span className="hidden sm:inline">Finalizar pedido</span>
-                <span className="sm:hidden">Finalizar</span>
+                <span className="hidden sm:inline">Lorem ipsum</span>
+                <span className="sm:hidden">Lorem</span>
                 <ArrowRight size={16} />
               </motion.button>
             </div>

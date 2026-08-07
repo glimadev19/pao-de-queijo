@@ -9,21 +9,21 @@ import FormularioPedido from "./components/FormularioPedido";
 const PRODUTOS_DADOS = [
   {
     id: "tradicional",
-    name: "Tradicional (Com Recheio)",
-    description: "Massa artesanal de queijo curado, assada até ficar douradinha por fora e derretida por dentro. Recheio cremoso surpresa em cada mordida — pura memória afetiva mineira, direto do forno pra sua mesa.",
+    name: "Pão de Queijo Com Recheio", // Deixei um nome simples para guiar vocês
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
     price: 1.40,
-    tagline: "O CLÁSSICO QUE ABRAÇA A ALMA",
-    image: "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&q=80&w=600",
-    highlights: ["Queijo Curado", "Forno pra Mesa", "Artesanal"]
+    tagline: "LOREM IPSUM DOLOR SIT",
+    image: "/sem-recheio.jpeg", // Foto real que você salvou
+    highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   },
   {
     id: "sem-recheio",
-    name: "Sem Recheio",
-    description: "A receita original da Jossy — leve, crocante por fora e macia por dentro. Feito com queijo minas de verdade e polvilho selecionado. Perfeito pro café da manhã, lanche da tarde ou aquele desejo de comfort food.",
+    name: "Pão de Queijo Sem Recheio", // Deixei um nome simples para guiar vocês
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
     price: 1.20,
-    tagline: "TRADIÇÃO PURA, DO JEITO DA VOVÓ",
-    image: "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?auto=format&fit=crop&q=80&w=600",
-    highlights: ["Crocante", "Leve", "Queijo Minas Real"]
+    tagline: "LOREM IPSUM DOLOR SIT",
+    image: "/com-recheio.jpeg", // Foto real que você salvou
+    highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   }
 ];
 
@@ -59,6 +59,14 @@ export default function App() {
     }));
   };
 
+  // NOVA FUNÇÃO: Atualiza a quantidade digitada diretamente pelo input
+  const handleQuantityChange = (id, novaQuantidade) => {
+    setCarrinho((prev) => ({
+      ...prev,
+      [id]: novaQuantidade
+    }));
+  };
+
   // Função de scroll suave refinada da Emergent
   const scrollTo = (el) => {
     if (!el) return;
@@ -87,7 +95,7 @@ export default function App() {
             Escolha o seu favorito. Ou leve os dois.
           </h2>
           <p className="mt-4 text-gray-600 max-w-2xl mx-auto">
-            Produzidos artesanalmente, no dia da entrega. Use os botões + e - para montar sua encomenda.
+            Produzidos artesanalmente, no dia da entrega. Digite a quantidade desejada ou use os botões + e -.
           </p>
         </div>
 
@@ -99,6 +107,7 @@ export default function App() {
               quantity={carrinho[item.id] || 0}
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
+              onChangeQuantity={handleQuantityChange} // PASSO A NOVA FUNÇÃO AQUI
             />
           ))}
         </div>

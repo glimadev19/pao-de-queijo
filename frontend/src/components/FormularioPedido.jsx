@@ -1,25 +1,35 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Send, User, Phone, Calendar, Clock, CheckCircle2 } from "lucide-react";
+import { Send, User, Phone, Calendar, Clock, CheckCircle2, Store } from "lucide-react";
 import { toast } from "sonner";
 import { formatBRL, maskPhone, onlyDigits } from "../lib/format";
 
-const JOSSY_WHATSAPP = "5579999999999"; // (79) 99999-9999 placeholder
+const JOSSY_WHATSAPP = "5579999295738";
 
-const hojeISO = () => {
+// Retorna a data de amanhã (YYYY-MM-DD) para antecedência mínima de 24h
+const amanhaISO = () => {
   const d = new Date();
-  d.setDate(d.getDate() + 1); // Sugere o dia de amanhã por padrão
+  d.setDate(d.getDate() + 1);
   return d.toISOString().split("T")[0];
 };
 
-const dataMinimaISO = () => new Date().toISOString().split("T")[0];
+// Retorna o horário atual do usuário formatado em HH:mm (ex: "21:38")
+const horarioAtual = () => {
+  const agora = new Date();
+  const hora = agora.getHours();
+  const minutos = String(agora.getMinutes()).padStart(2, "0");
+  
+  if (hora < 7 || hora >= 17) return "07:00";
+
+  return `${String(hora).padStart(2, "0")}:${minutos}`;
+};
 
 export default function FormularioPedido({ carrinho, produtos, total, onPedidoEnviado }) {
   const [form, setForm] = useState({
     nome: "",
     telefone: "",
-    data: hojeISO(),
-    horario: "10:00",
+    data: amanhaISO(),
+    horario: horarioAtual(), // <--- Inicializa com a hora exata do momento
   });
   const [erros, setErros] = useState({});
   const [enviando, setEnviando] = useState(false);
@@ -34,17 +44,24 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
   const validarFormulario = () => {
     const proximosErros = {};
     if (!form.nome.trim() || form.nome.trim().length < 2)
-      proximosErros.nome = "Informe seu nome completo";
+      proximosErros.nome = "Por favor, informe seu nome completo.";
     if (onlyDigits(form.telefone).length < 10)
-      proximosErros.telefone = "O WhatsApp precisa ter 10 ou 11 dígitos";
-    if (!form.data) proximosErros.data = "Escolha uma data";
-    else if (form.data < dataMinimaISO()) proximosErros.data = "A data não pode ser no passado";
-    if (!form.horario) proximosErros.horario = "Escolha um horário";
+      proximosErros.telefone = "Informe um número de WhatsApp válido.";
     
-    // Conta o total de itens direto do objeto de carrinho
+    if (!form.data) {
+      proximosErros.data = "Selecione a data.";
+    } else if (form.data < amanhaISO()) {
+      proximosErros.data = "Encomendas devem ser feitas com no mínimo 24h de antecedência.";
+    }
+    if (!form.horario) {
+      proximosErros.horario = "Selecione o horário.";
+    } else if (form.horario < "07:00" || form.horario > "17:00") {
+      proximosErros.horario = "Horário de funcionamento: das 07:00 às 17:00 horas"
+    }
+    
     const totalItens = Object.values(carrinho).reduce((a, b) => a + b, 0);
     if (totalItens === 0) {
-      toast.error("Adicione ao menos um item ao pedido antes de finalizar.");
+      toast.error("Adicione itens ao cardápio para continuar.");
       return false;
     }
     setErros(proximosErros);
@@ -52,14 +69,14 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
   };
 
   const gerarMensagemWhatsApp = () => {
-    const linhas = ["*Nova Encomenda — Pão de Queijo da Jossy*", ""];
+    const linhas = ["*NOVO PEDIDO - PÃO DE QUEIJO DA JOSSY*", ""];
     linhas.push(`👤 *Nome:* ${form.nome.trim()}`);
     linhas.push(`📱 *WhatsApp:* ${form.telefone}`);
     const [ano, mes, dia] = form.data.split("-");
-    linhas.push(`📅 *Data:* ${dia}/${mes}/${ano}`);
-    linhas.push(`⏰ *Horário:* ${form.horario}`);
-    linhas.push("");
-    linhas.push("🛒 *Itens do pedido:*");
+    linhas.push(`📅 *Data de Retirada:* ${dia}/${mes}/${ano}`);
+    linhas.push(`⏰ *Horário de Retirada:* ${form.horario}`);
+    linhas.push('📍 *Tipo:* Retirada no Local');
+    linhas.push("🛒 *Itens do Pedido:*");
     
     produtos.forEach((p) => {
       const qtd = carrinho[p.id] || 0;
@@ -69,8 +86,6 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
     });
     linhas.push("");
     linhas.push(`💰 *Total:* ${formatBRL(total)}`);
-    linhas.push("");
-    linhas.push("_Pedido enviado pelo site oficial._");
     return linhas.join("\n");
   };
 
@@ -81,11 +96,10 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
     const mensagem = encodeURIComponent(gerarMensagemWhatsApp());
     const url = `https://wa.me/${JOSSY_WHATSAPP}?text=${mensagem}`;
 
-    // Abre o WhatsApp em uma nova aba
     window.open(url, "_blank", "noopener,noreferrer");
 
-    toast.success("Encomenda enviada!", {
-      description: "Abrimos o WhatsApp com sua mensagem. Toque em Enviar para confirmar com a Jossy.",
+    toast.success("Pedido gerado!", {
+      description: "Você foi direcionado ao WhatsApp para confirmar.",
       icon: <CheckCircle2 size={18} />,
       duration: 6000,
     });
@@ -103,14 +117,15 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
       className="relative py-16 sm:py-24 bg-[#F5F0E6]"
     >
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Cabeçalho da Seção */}
         <div className="text-center max-w-xl mx-auto">
           <p className="text-xs font-black tracking-[0.25em] uppercase text-[#E63946]">
-            Finalizar Encomenda
+            FINALIZAR ENCOMENDA
           </p>
           <h2 className="mt-3 font-display font-black text-[#2A2421] text-3xl sm:text-5xl leading-tight tracking-tight">
-            Falta pouco pro cheirinho chegar aí.
+            Faça sua encomenda
           </h2>
-          <p className="mt-4 text-[#6A5D57] text-base sm:text-lg">
+          <p className="mt-4 text-[#6A5D57] text-base sm:text-lg font-medium">
             Preencha seus dados abaixo. Confirmamos tudinho pelo WhatsApp da Jossy em instantes.
           </p>
         </div>
@@ -124,6 +139,15 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
           className="mt-10 bg-white border border-[#E8E1D5] rounded-3xl p-6 sm:p-10 shadow-sm"
           noValidate
         >
+
+          {/*Aviso sobre retirada*/}
+          <div className="mb-6 p-4 rounded-2xl bg-[#FDFBF7] border border-[#E8E1D5] flex items-center gap-3">
+            <Store className="text-[#E63946] shrink-0" size={20} />
+            <p className="text-xs sm:text-sm text-[#6A5D57] font-medium">
+              <strong className="text-[#2A2421]">Retirada no Local:</strong> Seus pães de queijo estarão preparados na hora exata para você buscar
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
             {/* Nome */}
             <div className="sm:col-span-2">
@@ -132,7 +156,7 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
                 className="text-xs font-bold tracking-wider uppercase text-[#6A5D57] flex items-center gap-1.5"
               >
                 <User size={13} />
-                Nome completo
+                NOME COMPLETO
               </label>
               <input
                 id="nome"
@@ -159,7 +183,7 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
                 className="text-xs font-bold tracking-wider uppercase text-[#6A5D57] flex items-center gap-1.5"
               >
                 <Phone size={13} />
-                WhatsApp
+                WHATSAPP
               </label>
               <input
                 id="telefone"
@@ -187,14 +211,14 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
                 className="text-xs font-bold tracking-wider uppercase text-[#6A5D57] flex items-center gap-1.5"
               >
                 <Calendar size={13} />
-                Data de entrega/retirada
+                DATA DA RETIRADA
               </label>
               <input
                 id="data"
                 data-testid="input-date"
                 type="date"
                 value={form.data}
-                min={dataMinimaISO()}
+                min={amanhaISO()}
                 onChange={handleChange("data")}
                 className={`mt-2 w-full h-12 px-4 rounded-xl bg-[#FDFBF7] border ${
                   erros.data ? "border-[#E63946]" : "border-[#E8E1D5]"
@@ -214,19 +238,21 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
                 className="text-xs font-bold tracking-wider uppercase text-[#6A5D57] flex items-center gap-1.5"
               >
                 <Clock size={13} />
-                Horário
+                HORÁRIO
               </label>
               <input
                 id="horario"
                 data-testid="input-time"
                 type="time"
+                min="07:00"
+                max="17:00"
                 value={form.horario}
                 onChange={handleChange("horario")}
                 className={`mt-2 w-full h-12 px-4 rounded-xl bg-[#FDFBF7] border ${
                   erros.horario ? "border-[#E63946]" : "border-[#E8E1D5]"
                 } text-[#2A2421] focus:outline-none focus:border-[#E63946] focus:ring-2 focus:ring-[#E63946]/20 transition-all`}
               />
-              {erros.erros && (
+              {erros.horario && (
                 <p data-testid="error-time" className="mt-1.5 text-xs text-[#E63946] font-semibold">
                   {erros.horario}
                 </p>
@@ -240,7 +266,7 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
             className="mt-8 rounded-2xl bg-[#FDFBF7] border border-[#E8E1D5] p-5 sm:p-6"
           >
             <p className="text-xs font-black tracking-widest uppercase text-[#6A5D57]">
-              Resumo do pedido
+              RESUMO DO PEDIDO
             </p>
             {Object.values(carrinho).reduce((a, b) => a + b, 0) === 0 ? (
               <p className="mt-3 text-sm text-[#6A5D57]">
@@ -280,6 +306,7 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
             </div>
           </div>
 
+          {/* Botão Principal */}
           <motion.button
             data-testid="checkout-submit"
             type="submit"
@@ -289,9 +316,10 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
             className="mt-6 w-full h-14 bg-[#E63946] hover:bg-[#c92b38] disabled:bg-[#E63946]/60 text-white font-display font-black text-lg rounded-full shadow-lg hover:shadow-xl transition-all inline-flex items-center justify-center gap-2"
           >
             <Send size={18} />
-            {enviando ? "Enviando..." : "Concluir Encomenda"}
+            {enviando ? "Concluindo..." : "Concluir Encomenda"}
           </motion.button>
 
+          {/* Legenda abaixo do Botão */}
           <p className="mt-4 text-center text-xs text-[#6A5D57]">
             Ao concluir, você será direcionado ao WhatsApp para confirmar o pedido com a Jossy.
           </p>
