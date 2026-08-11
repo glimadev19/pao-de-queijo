@@ -10,6 +10,11 @@ const JOSSY_WHATSAPP = "5579999295738";
 const amanhaISO = () => {
   const d = new Date();
   d.setDate(d.getDate() + 1);
+
+  if (d.getDate() === 0) {
+    d.setDate(d.getDate() + 1);
+  }
+
   return d.toISOString().split("T")[0];
 };
 
@@ -52,11 +57,19 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
       proximosErros.data = "Selecione a data.";
     } else if (form.data < amanhaISO()) {
       proximosErros.data = "Encomendas devem ser feitas com no mínimo 24h de antecedência.";
+    } else {
+      const [ano, mes, dia] = form.data.split("-");
+      const dataSelecionada = new Date(ano, mes - 1, dia);
+      
+      if (dataSelecionada.getDay() === 0) {
+        proximosErros.data = "Não realizamos retiradas aos Domingos";
+      }
     }
+
     if (!form.horario) {
       proximosErros.horario = "Selecione o horário.";
     } else if (form.horario < "07:00" || form.horario > "17:00") {
-      proximosErros.horario = "Horário de funcionamento: das 07:00 às 17:00 horas"
+      proximosErros.horario = "Horário de funcionamento: das 07:00 às 17:00 horas";
     }
     
     const totalItens = Object.values(carrinho).reduce((a, b) => a + b, 0);
