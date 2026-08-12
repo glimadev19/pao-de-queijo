@@ -1,20 +1,66 @@
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowDown, Sparkles } from "lucide-react";
+import { ArrowDown, Sparkles, Megaphone } from "lucide-react";
 import { obterStatusEncomendas } from "../lib/statusEncomendas";
 
 const HERO_IMAGE = "hero-pao.jpeg";
 
-export const Hero = ({ onScrollToMenu, statusAdmin = null }) => {
-  const status = obterStatusEncomendas(statusAdmin);
+export const Hero = ({ onScrollToMenu, statusAdmin = null, shopMode = null }) => {
+  // Estado local sincronizado com localStorage para o status da loja
+  const [modoPersistido, setModoPersistido] = useState(() => {
+    return shopMode ?? statusAdmin ?? localStorage.getItem("shopMode") ?? "auto";
+  });
+
+  // Estado local sincronizado para o Banner de Aviso
+  const [aviso, setAviso] = useState({
+    exibir: false,
+    texto: ""
+  });
+
+  // Carrega e monitora alterações no aviso
+  useEffect(() => {
+    const carregarAviso = () => {
+      const exibir = localStorage.getItem("exibirBanner") === "true";
+      const texto = localStorage.getItem("bannerTexto") || "";
+      setAviso({ exibir, texto });
+    };
+
+    carregarAviso();
+
+    const handleStorageChange = (e) => {
+      if (e.key === "shopMode" && e.newValue) {
+        setModoPersistido(e.newValue);
+      }
+      if (e.key === "exibirBanner" || e.key === "bannerTexto") {
+        carregarAviso();
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [shopMode, statusAdmin]);
+
+  // Obtém o objeto de status baseado no estado sincronizado
+  const status = obterStatusEncomendas(modoPersistido);
+  const estaAberto = status.aberto;
+
   return (
     <section
       data-testid="hero-section"
-      className="relative w-full pt-6 sm:pt-10 pb-10 sm:pb-16"
+      className="relative w-full pt-0 pb-10 sm:pb-16"
     >
+      {/* === BANNER DE AVISO NO TOPO === */}
+      {aviso.exibir && aviso.texto && (
+        <div className="w-full bg-[#FFB800] text-black font-bold px-4 py-2.5 text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm mb-6">
+          <Megaphone size={16} className="shrink-0" />
+          <span className="text-center">{aviso.texto}</span>
+        </div>
+      )}
+
       {/* Top brand strip */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-6 sm:mb-10">
+      <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between mb-6 sm:mb-10 ${!aviso.exibir ? 'pt-6 sm:pt-10' : ''}`}>
         <div className="flex items-center gap-3">
-          {/* LOGO DA MARCA - Substituindo a antiga bolinha estática pela imagem real */}
+          {/* LOGO DA MARCA */}
           <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center shadow-md bg-white border border-[#E8E1D5]">
             <img 
               src="/logo-jossy.jpg" 
@@ -55,10 +101,17 @@ export const Hero = ({ onScrollToMenu, statusAdmin = null }) => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
             <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent" />
 
-            {/* BADGE AMARELO - Posicionado de forma absoluta com rounded-full */}
-            <div className="absolute top-0 left-14 z-20">
-              <div className="inline-flex items-center gap-2 px-6 py-2 bg-[#FFB800] rounded-full shadow-md">
-                <span className="text-[10px] sm:text-xs font-black tracking-widest uppercase">
+            {/* BADGE DINÂMICO DE STATUS DE ENCOMENDAS */}
+            <div className="absolute top-4 left-6 sm:left-14 z-20">
+              <div 
+                className={`inline-flex items-center gap-2 px-5 py-2 rounded-full shadow-lg border transition-all duration-300 ${
+                  estaAberto 
+                    ? "bg-[#FFB800] text-black border-amber-300" 
+                    : "bg-red-600 text-white border-red-500"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${estaAberto ? "bg-black animate-pulse" : "bg-white"}`} />
+                <span className="text-[11px] sm:text-xs font-black tracking-widest uppercase">
                   {status.texto}
                 </span>
               </div>

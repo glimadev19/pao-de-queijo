@@ -1,33 +1,41 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Hero } from "./components/Hero";
 import { CardProduto } from "./components/CardProduto";
 import { CarrinhoFlutuante } from "./components/CarrinhoFlutuante";
 import { Footer as Rodape } from "./components/Footer";
 import FormularioPedido from "./components/FormularioPedido";
+import Admin from "./components/Admin";
 
-// Dados dos produtos perfeitamente alinhados com o CardProduto.jsx
 const PRODUTOS_DADOS = [
   {
     id: "tradicional",
-    name: "Pão de Queijo Com Recheio", // Deixei um nome simples para guiar vocês
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+    name: "Pão de Queijo Com Recheio",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     price: 1.40,
     tagline: "LOREM IPSUM DOLOR SIT",
-    image: "/sem-recheio.jpeg", // Foto real que você salvou
+    image: "/sem-recheio.jpeg",
     highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   },
   {
     id: "sem-recheio",
-    name: "Pão de Queijo Sem Recheio", // Deixei um nome simples para guiar vocês
-    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+    name: "Pão de Queijo Sem Recheio",
+    description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     price: 1.20,
     tagline: "LOREM IPSUM DOLOR SIT",
-    image: "/com-recheio.jpeg", // Foto real que você salvou
+    image: "/com-recheio.jpeg",
     highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   }
 ];
 
 export default function App() {
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname);
+    window.addEventListener("popstate", handleLocationChange);
+    return () => window.removeEventListener("popstate", handleLocationChange);
+  }, []);
+
   const [carrinho, setCarrinho] = useState({
     tradicional: 0,
     "sem-recheio": 0,
@@ -36,7 +44,6 @@ export default function App() {
   const cardapioRef = useRef(null);
   const formularioRef = useRef(null);
 
-  // Cálculos performáticos do carrinho usando useMemo (baseado na LandingPage)
   const totais = useMemo(() => {
     let itens = 0;
     let preco = 0;
@@ -59,7 +66,6 @@ export default function App() {
     }));
   };
 
-  // NOVA FUNÇÃO: Atualiza a quantidade digitada diretamente pelo input
   const handleQuantityChange = (id, novaQuantidade) => {
     setCarrinho((prev) => ({
       ...prev,
@@ -67,25 +73,47 @@ export default function App() {
     }));
   };
 
-  // Função de scroll suave refinada da Emergent
   const scrollTo = (el) => {
     if (!el) return;
     const y = el.getBoundingClientRect().top + window.scrollY - 12;
     window.scrollTo({ top: y, behavior: "smooth" });
   };
 
-  // Limpa o carrinho e volta para o topo do cardápio após enviar o pedido
   const handlePedidoEnviado = () => {
     setCarrinho({ tradicional: 0, "sem-recheio": 0 });
     setTimeout(() => scrollTo(cardapioRef.current), 400);
   };
 
+  const [shopMode, setShopMode] = useState(() => {
+    return localStorage.getItem("shopMode") || "auto";
+  });
+
+  const handleSetShopMode = (novoModo) => {
+    setShopMode(novoModo);
+    localStorage.setItem("shopMode", novoModo);
+  };
+
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "shopMode" && e.newValue) {
+        setShopMode(e.newValue);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+
+  if (currentPath === "/admin" || currentPath === "/admin/") {
+    return <Admin shopMode={shopMode} setShopMode={handleSetShopMode} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#FFFDF9] text-gray-800 font-sans antialiased">
-      {/* 1. Topo / Banner Principal */}
-      <Hero onScrollToMenu={() => scrollTo(cardapioRef.current)} />
+      <Hero 
+        onScrollToMenu={() => scrollTo(cardapioRef.current)}
+        shopMode={shopMode}
+      />
 
-      {/* 2. Seção do Cardápio */}
       <main ref={cardapioRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
           <span className="text-[#E63946] font-semibold tracking-wider uppercase text-sm">
@@ -107,13 +135,12 @@ export default function App() {
               quantity={carrinho[item.id] || 0}
               onIncrement={handleIncrement}
               onDecrement={handleDecrement}
-              onChangeQuantity={handleQuantityChange} // PASSO A NOVA FUNÇÃO AQUI
+              onChangeQuantity={handleQuantityChange}
             />
           ))}
         </div>
       </main>
 
-      {/* 3. Formulário de Finalização de Pedido */}
       <div ref={formularioRef}>
         <FormularioPedido 
           carrinho={carrinho} 
@@ -123,10 +150,8 @@ export default function App() {
         />
       </div>
 
-      {/* 4. Rodapé */}
       <Rodape />
 
-      {/* 5. Componente do Carrinho Flutuante */}
       <CarrinhoFlutuante 
         totalItens={totais.itens} 
         valorTotal={totais.preco} 
