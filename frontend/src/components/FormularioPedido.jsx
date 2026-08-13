@@ -30,6 +30,7 @@ const horarioAtual = () => {
 };
 
 export default function FormularioPedido({ carrinho, produtos, total, onPedidoEnviado }) {
+  console.log("Produtos recebidos:", produtos);
   const [form, setForm] = useState({
     nome: "",
     telefone: "",
@@ -102,25 +103,58 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
     return linhas.join("\n");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validarFormulario()) return;
     setEnviando(true);
-    const mensagem = encodeURIComponent(gerarMensagemWhatsApp());
-    const url = `https://wa.me/${JOSSY_WHATSAPP}?text=${mensagem}`;
 
-    window.open(url, "_blank", "noopener,noreferrer");
+    // ✅ Acesso direto pelas chaves exatas do estado 'carrinho' definida no App.jsx:
+    const qtdComRecheio = carrinho["com-recheio"] || 0;
+    const qtdSemRecheio = carrinho["sem-recheio"] || 0;
 
-    toast.success("Pedido gerado!", {
-      description: "Você foi direcionado ao WhatsApp para confirmar.",
-      icon: <CheckCircle2 size={18} />,
-      duration: 6000,
-    });
+    const payload = {
+      nome_cliente: form.nome.trim(),
+      whatsapp: onlyDigits(form.telefone),
+      data_entrega: form.data,
+      hora_entrega: form.horario,
+      qtd_com_recheio: qtdComRecheio,
+      qtd_sem_recheio: qtdSemRecheio,
+      whatsapp_id: null
+    };
 
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost/pao-de-queijo/backend/criar_pedido.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.erro || "Erro ao gravar pedido no banco");
+      }
+
+      const mensagem = encodeURIComponent(gerarMensagemWhatsApp());
+      const url = `https://wa.me/${JOSSY_WHATSAPP}?text=${mensagem}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+
+      toast.success("Pedido gerado e salvo com sucesso!", {
+        description: "Você foi direcionado ao WhatsApp para confirmar.",
+        icon: <CheckCircle2 size={18} />,
+        duration: 6000,
+      });
+
+      if (onPedidoEnviado) onPedidoEnviado();
+
+    } catch (error) {
+      console.error("Erro ao enviar pedido:", error);
+      toast.error(`Falha ao salvar pedido: ${error.message}`);
+    } finally {
       setEnviando(false);
-      onPedidoEnviado && onPedidoEnviado();
-    }, 600);
+    }
   };
 
   return (

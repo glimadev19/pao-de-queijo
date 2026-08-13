@@ -1,6 +1,4 @@
 <?php
-// backend/criar_pedido.php
-
 // 1. Configura os cabeçalhos para permitir que o React (que roda em outra porta) acesse o PHP
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");

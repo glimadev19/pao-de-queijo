@@ -8,12 +8,12 @@ import Admin from "./components/Admin";
 
 const PRODUTOS_DADOS = [
   {
-    id: "tradicional",
+    id: "com-recheio",
     name: "Pão de Queijo Com Recheio",
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     price: 1.40,
     tagline: "LOREM IPSUM DOLOR SIT",
-    image: "/sem-recheio.jpeg",
+    image: "/com-recheio.jpeg",
     highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   },
   {
@@ -22,7 +22,7 @@ const PRODUTOS_DADOS = [
     description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit...",
     price: 1.20,
     tagline: "LOREM IPSUM DOLOR SIT",
-    image: "/com-recheio.jpeg",
+    image: "/sem-recheio.jpeg",
     highlights: ["Lorem Ipsum", "Dolor Sit", "Consectetur"]
   }
 ];
@@ -37,7 +37,7 @@ export default function App() {
   }, []);
 
   const [carrinho, setCarrinho] = useState({
-    tradicional: 0,
+    "com-recheio": 0,
     "sem-recheio": 0,
   });
 
@@ -80,7 +80,7 @@ export default function App() {
   };
 
   const handlePedidoEnviado = () => {
-    setCarrinho({ tradicional: 0, "sem-recheio": 0 });
+    setCarrinho({ "com-recheio": 0, "sem-recheio": 0 });
     setTimeout(() => scrollTo(cardapioRef.current), 400);
   };
 
