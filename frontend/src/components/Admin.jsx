@@ -1,50 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Store, ShoppingBag, Utensils, MessageSquare, 
   CheckCircle, Bell, Copy, Zap, Lock, Megaphone, Save
 } from 'lucide-react';
 import { obterStatusEncomendas } from '../lib/statusEncomendas';
-import {motion, AnimatePresence} from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Contexto global reutilizável para evitar bloqueio do navegador
+let globalAudioCtx = null;
 
 export default function Admin({ shopMode, setShopMode }) {
   const [activeTab, setActiveTab] = useState('operacao');
   
-  // Estado e persistência do modo da loja
   const handleSelectMode = (modo) => {
     setShopMode(modo);
     localStorage.setItem("shopMode", modo);
   };
 
-  // Avalia o status atual da loja
   const statusAtual = obterStatusEncomendas(shopMode ?? localStorage.getItem("shopMode") ?? "auto");
   const estaAberto = statusAtual.aberto;
 
+  // Função para inicializar/desbloquear o áudio no toque/clique do usuário
+  const initAudio = () => {
+    if (!globalAudioCtx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) globalAudioCtx = new AudioCtx();
+    }
+    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+      globalAudioCtx.resume();
+    }
+  };
+
   const tocarBipNotificacao = () => {
     try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
+      initAudio();
+      if (!globalAudioCtx) return;
 
-      const audioCtx = new AudioCtx();
-
-      // Força a ativação caso o contexto esteja suspenso pelo navegador
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-
-      // CORRIGIDO: createOscillator (dois 's', um 't')
-      const oscillator = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
+      const oscillator = globalAudioCtx.createOscillator();
+      const gainNode = globalAudioCtx.createGain();
 
       oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
-      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      oscillator.frequency.setValueAtTime(800, globalAudioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.15, globalAudioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, globalAudioCtx.currentTime + 0.3);
 
       oscillator.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      gainNode.connect(globalAudioCtx.destination);
 
-      oscillator.start(audioCtx.currentTime);
-      oscillator.stop(audioCtx.currentTime + 0.3);
+      oscillator.start(globalAudioCtx.currentTime);
+      oscillator.stop(globalAudioCtx.currentTime + 0.3);
     } catch (e) {
       console.error("Erro ao reproduzir o bip de áudio:", e);
     }
@@ -59,7 +63,6 @@ export default function Admin({ shopMode, setShopMode }) {
   });
   const [salvoFeedback, setSalvoFeedback] = useState(false);
 
-  // Função para salvar as configurações do Banner no localStorage
   const handleSalvarBanner = () => {
     localStorage.setItem("bannerTexto", bannerTexto);
     localStorage.setItem("exibirBanner", exibirBanner ? "true" : "false");
@@ -102,15 +105,73 @@ export default function Admin({ shopMode, setShopMode }) {
     setPedidosCount((prev) => prev + 1);
   };
 
-  // 3. RESUMO DO DIA
+  // 3. RESUMO DO DIA E INTEGRAÇÃO COM PHP/MYSQL
   const [faturamentoManual, setFaturamentoManual] = useState("0,00");
   const [pedidosCount, setPedidosCount] = useState(0);
   const [topDoDia, setTopDoDia] = useState({ nome: "—", qtd: 0 });
 
+  const prevTotalGeral = useRef(null);
+
+  useEffect(() => {
+  const carregarDashboard = async () => {
+    try {
+      const res = await fetch("http://localhost/pao-de-queijo/backend/dashboard.php");
+      const data = await res.json();
+
+      if (data && data.success) {
+        const totalGeralAtual = Number(data.totalGeral || 0);
+        const pedidosHoje = Number(data.totalPedidos || 0);
+
+        // Verifica se houve incremento de pedido no banco
+        if (prevTotalGeral.current !== null && totalGeralAtual > prevTotalGeral.current) {
+          tocarBipNotificacao();
+
+          const ultimo = data.ultimoPedido || {};
+          const nomeCliente = ultimo.cliente || "Cliente";
+          const dataRetirada = ultimo.dataRetirada || "Amanhã";
+          const horaRetirada = ultimo.horaRetirada || "--:--"; 
+
+          // Captura com segurança seja 'valor' ou 'valor_total'
+          const valorBruto = ultimo.valor ?? ultimo.valor_total ?? 0;
+          const valorTotal = Number(valorBruto).toFixed(2).replace('.', ',');
+          
+          setNotifications((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              title: `Novo pedido de ${nomeCliente}!`, 
+              sub: `Retirada: ${dataRetirada} às ${horaRetirada} • R$ ${valorTotal}`
+            }
+          ]);
+        }
+
+        prevTotalGeral.current = totalGeralAtual;
+        setPedidosCount(pedidosHoje);
+
+        if (data.topDoDia) {
+          setTopDoDia({
+            nome: data.topDoDia.nome || "—",
+            qtd: data.topDoDia.vendas || 0
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao buscar dados reais do MySQL:", err);
+    }
+  };
+
+  carregarDashboard();
+  const interval = setInterval(carregarDashboard, 10000);
+  return () => clearInterval(interval);
+}, []);
+
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#2A2421] pb-24 font-sans select-none">
+    <div 
+      onClick={initAudio} 
+      className="min-h-screen bg-[#FDFBF7] text-[#2A2421] pb-24 font-sans select-none"
+    >
       
-{/* === NOTIFICAÇÕES EMPILHÁVEIS COM ANIMAÇÃO APENAS NA ENTRADA === */}
+      {/* === NOTIFICAÇÕES EMPILHÁVEIS === */}
       <AnimatePresence>
         {notifications.length > 0 && (
           <motion.div 
@@ -126,12 +187,11 @@ export default function Admin({ shopMode, setShopMode }) {
               onClick={() => setIsHovered(!isHovered)}
               className="w-full max-w-sm relative flex flex-col items-center cursor-pointer pointer-events-auto"
             >
-              {/* Se NÃO estiver em Hover: Pilha sobreposta estática sem re-animar no hover */}
               {!isHovered ? (
                 <div className="relative w-full flex justify-center items-start">
                   {notifications.slice(-3).map((notif, index, array) => {
                     const total = array.length;
-                    const posicaoInversa = total - 1 - index; // 0 = topo, 1 = meio, 2 = fundo
+                    const posicaoInversa = total - 1 - index;
 
                     return (
                       <div
@@ -158,7 +218,6 @@ export default function Admin({ shopMode, setShopMode }) {
                   })}
                 </div>
               ) : (
-                /* Transição simples e direta ao expandir */
                 <div className="w-full flex flex-col gap-2 transition-all duration-200">
                   {notifications.slice().reverse().map((notif) => (
                     <div 

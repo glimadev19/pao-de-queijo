@@ -119,7 +119,8 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
       hora_entrega: form.horario,
       qtd_com_recheio: qtdComRecheio,
       qtd_sem_recheio: qtdSemRecheio,
-      whatsapp_id: null
+      whatsapp_id: null,
+      valor_total: total
     };
 
     try {
