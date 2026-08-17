@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { obterStatusEncomendas } from '../lib/statusEncomendas';
 import { motion, AnimatePresence } from "framer-motion";
+import AbaPedidos from './AbaPedidos';
 
 // Contexto global reutilizável para evitar bloqueio do navegador
 let globalAudioCtx = null;
@@ -447,10 +448,7 @@ export default function Admin({ shopMode, setShopMode }) {
 
         {/* === ABA PEDIDOS DO DIA === */}
         {activeTab === 'pedidos' && (
-          <div className="space-y-3">
-            <h3 className="font-bold text-sm">Gerenciamento de Pedidos</h3>
-            <p className="text-xs text-gray-500">Lista e atualização de status em tempo real.</p>
-          </div>
+          <AbaPedidos />
         )}
 
         {/* === ABA CARDÁPIO === */}
