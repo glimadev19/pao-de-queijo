@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, User, MessageSquare, ChevronRight, Calendar as CalendarIcon, PackageX, CheckCircle } from "lucide-react";
+import { Clock, User, MessageSquare, ChevronRight, Calendar as CalendarIcon, PackageX, ChevronLeft, ChevronRight as ChevronRightIcon } from "lucide-react";
 import { toast } from "sonner";
 
 // Mapeamento de status da tabela MySQL
@@ -11,13 +11,25 @@ const STATUS_MAP = {
   concluido: { label: "CONCLUÍDO", bg: "bg-gray-100", text: "text-gray-600", proximo: null, acaoLabel: null }
 };
 
-// Pega a data de hoje no formato YYYY-MM-DD
-const hojeISO = () => new Date().toISOString().split("T")[0];
+// Retorna YYYY-MM-DD no fuso horário local
+const hojeISO = () => {
+  const d = new Date();
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
 
 export default function AbaPedidos() {
   const [pedidos, setPedidos] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [dataSelecionada, setDataSelecionada] = useState(hojeISO());
+  const [datasComPedidos, setDatasComPedidos] = useState([]);
+  const [mostrarCalendario, setMostrarCalendario] = useState(false);
+
+  // Mês e ano para navegação no calendário
+  const [mesAtual, setMesAtual] = useState(new Date().getMonth());
+  const [anoAtual, setAnoAtual] = useState(new Date().getFullYear());
 
   // Busca pedidos no PHP passando a data escolhida
   const buscarPedidos = async () => {
@@ -38,13 +50,34 @@ export default function AbaPedidos() {
     }
   };
 
+  // Busca no backend quais datas possuem pedidos
+  const buscarDatasComPedidos = async () => {
+    try {
+      const res = await fetch("http://localhost/pao-de-queijo/backend/datas_com_pedidos.php");
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        const datasLimpas = data.map(d => String(d).substring(0, 10).trim());
+        setDatasComPedidos(datasLimpas);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar datas com pedidos:", err);
+    }
+  };
+
   useEffect(() => {
     buscarPedidos();
-    const interval = setInterval(buscarPedidos, 5000);
+    buscarDatasComPedidos();
+
+    const interval = setInterval(() => {
+      buscarPedidos();
+      buscarDatasComPedidos();
+    }, 5000);
+
     return () => clearInterval(interval);
   }, [dataSelecionada]);
 
-  // Atualiza status no banco
+  // Função para alterar status
   const alterarStatus = async (id, novoStatus) => {
     try {
       const res = await fetch("http://localhost/pao-de-queijo/backend/atualizar_status.php", {
@@ -62,7 +95,7 @@ export default function AbaPedidos() {
     }
   };
 
-  // Notificar via WhatsApp
+  // Notificação WhatsApp
   const notificarCliente = (pedido) => {
     const nome = pedido.nome_cliente || pedido.cliente;
     const fone = (pedido.whatsapp || "").replace(/\D/g, "");
@@ -86,7 +119,34 @@ export default function AbaPedidos() {
     window.open(url, "_blank");
   };
 
-  // Filtra por status dentro da data selecionada
+  // Lógica para gerar os dias do mês do Calendário
+  const gerarDiasDoMes = () => {
+    const primeiroDia = new Date(anoAtual, mesAtual, 1).getDay();
+    const totalDias = new Date(anoAtual, mesAtual + 1, 0).getDate();
+    const dias = [];
+
+    for (let i = 0; i < primeiroDia; i++) {
+      dias.push(null);
+    }
+
+    for (let d = 1; d <= totalDias; d++) {
+      const mesFmt = String(mesAtual + 1).padStart(2, "0");
+      const diaFmt = String(d).padStart(2, "0");
+      const iso = `${anoAtual}-${mesFmt}-${diaFmt}`;
+      dias.push({ dia: d, iso });
+    }
+
+    return dias;
+  };
+
+  const mesesNomes = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+
+  const formatarDataExibicao = (iso) => {
+    if (!iso) return "";
+    const [a, m, d] = iso.split("-");
+    return `${d}/${m}/${a}`;
+  };
+
   const pedidosFiltrados = pedidos.filter((p) => {
     if (filtroStatus === "todos") return true;
     if (filtroStatus === "concluido") return p.status === "entregue" || p.status === "concluido";
@@ -95,8 +155,8 @@ export default function AbaPedidos() {
 
   return (
     <div className="space-y-4">
-      {/* 📌 CABEÇALHO */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+      {/* 📌 CABEÇALHO COM CALENDÁRIO CUSTOMIZADO */}
+      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-100 shadow-sm relative">
         <div>
           <h1 className="text-base font-black text-gray-800">Gerenciamento de Pedidos</h1>
           <p className="text-xs text-gray-400 font-medium">
@@ -104,15 +164,111 @@ export default function AbaPedidos() {
           </p>
         </div>
 
-        {/* Input de Data */}
-        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-          <CalendarIcon size={14} className="text-[#E63946]" />
-          <input
-            type="date"
-            value={dataSelecionada}
-            onChange={(e) => setDataSelecionada(e.target.value)}
-            className="text-xs font-bold text-gray-700 bg-transparent focus:outline-none cursor-pointer"
-          />
+        {/* Botão Seletor de Data */}
+        <div className="relative">
+          <button
+            onClick={() => setMostrarCalendario(!mostrarCalendario)}
+            className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl hover:bg-gray-100 transition-all cursor-pointer"
+          >
+            <CalendarIcon size={14} className="text-[#E63946]" />
+            <span className="text-xs font-bold text-gray-700">
+              {formatarDataExibicao(dataSelecionada)}
+            </span>
+          </button>
+
+          {/* 📅 POPUP DE CALENDÁRIO COM MARCAÇÕES */}
+          {mostrarCalendario && (
+            <div className="absolute right-0 top-10 mt-2 w-72 bg-white rounded-2xl p-4 shadow-xl border border-gray-100 z-50">
+              {/* Navegação Mês/Ano */}
+              <div className="flex justify-between items-center mb-3">
+                <button
+                  onClick={() => {
+                    if (mesAtual === 0) {
+                      setMesAtual(11);
+                      setAnoAtual(anoAtual - 1);
+                    } else setMesAtual(mesAtual - 1);
+                  }}
+                  className="p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs font-extrabold text-gray-800">
+                  {mesesNomes[mesAtual]} de {anoAtual}
+                </span>
+                <button
+                  onClick={() => {
+                    if (mesAtual === 11) {
+                      setMesAtual(0);
+                      setAnoAtual(anoAtual + 1);
+                    } else setMesAtual(mesAtual + 1);
+                  }}
+                  className="p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <ChevronRightIcon size={16} />
+                </button>
+              </div>
+
+              {/* Dias da semana */}
+              <div className="grid grid-cols-7 text-center text-[10px] font-bold text-gray-400 mb-2">
+                <span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span>
+              </div>
+
+              {/* Grade de Dias */}
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {gerarDiasDoMes().map((item, idx) => {
+                  if (!item) return <div key={idx} />;
+
+                  const selecionado = item.iso === dataSelecionada;
+                  const temPedido = datasComPedidos.some(d => d === item.iso);
+
+                  return (
+                    <button
+                      key={item.iso}
+                      onClick={() => {
+                        setDataSelecionada(item.iso);
+                        setMostrarCalendario(false);
+                      }}
+                      className={`relative py-1.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
+                        selecionado
+                          ? "bg-[#E63946] text-white shadow-md shadow-red-200"
+                          : "hover:bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      <span>{item.dia}</span>
+
+                      {/* 🔴 PONTINHO DE MARCAÇÃO DO PEDIDO */}
+                      {temPedido && (
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
+                            selecionado ? "bg-white" : "bg-[#E63946]"
+                          }`}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Botão Hoje */}
+              <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between">
+                <button
+                  onClick={() => {
+                    setDataSelecionada(hojeISO());
+                    setMostrarCalendario(false);
+                  }}
+                  className="text-[11px] font-bold text-[#E63946] hover:underline"
+                >
+                  Ir para Hoje
+                </button>
+                <button
+                  onClick={() => setMostrarCalendario(false)}
+                  className="text-[11px] font-bold text-gray-400 hover:underline"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
