@@ -86,7 +86,7 @@ export default function FormularioPedido({ carrinho, produtos, total, onPedidoEn
     const linhas = ["*NOVO PEDIDO - PÃO DE QUEIJO DA JOSSY*", ""];
     linhas.push(`👤 *Nome:* ${form.nome.trim()}`);
     linhas.push(`📱 *WhatsApp:* ${form.telefone}`);
-    const [ano, mes, dia] = form.data.split("-");
+    const [ano, mes, dia] = (form.data || "").split("-");
     linhas.push(`📅 *Data de Retirada:* ${dia}/${mes}/${ano}`);
     linhas.push(`⏰ *Horário de Retirada:* ${form.horario}`);
     linhas.push('📍 *Tipo:* Retirada no Local');

@@ -12,6 +12,20 @@ let globalAudioCtx = null;
 
 export default function Admin({ shopMode, setShopMode }) {
   const [activeTab, setActiveTab] = useState('operacao');
+
+  const [pedidosNaoLidosPorData, setPedidosNaoLidosPorData] = useState({});
+
+  const totalPedidosNaoLidos = Object.values(pedidosNaoLidosPorData).reduce((acc, qtd) => acc + qtd, 0);
+
+  const marcarDataComoLida = (dataISO) => {
+    if (!dataISO) return;
+    setPedidosNaoLidosPorData((prev) => {
+      if (!prev[dataISO]) return prev;
+      const copia = { ...prev };
+      delete copia[dataISO];
+      return copia;
+    });
+  };
   
   const handleSelectMode = (modo) => {
     setShopMode(modo);
@@ -114,57 +128,69 @@ export default function Admin({ shopMode, setShopMode }) {
   const prevTotalGeral = useRef(null);
 
   useEffect(() => {
-  const carregarDashboard = async () => {
-    try {
-      const res = await fetch("http://localhost/pao-de-queijo/backend/dashboard.php");
-      const data = await res.json();
+    const carregarDashboard = async () => {
+      try {
+        const res = await fetch("http://localhost/pao-de-queijo/backend/dashboard.php");
+        const data = await res.json();
 
-      if (data && data.success) {
-        const totalGeralAtual = Number(data.totalGeral || 0);
-        const pedidosHoje = Number(data.totalPedidos || 0);
+        if (data && data.success) {
+          const totalGeralAtual = Number(data.totalGeral || 0);
+          const pedidosHoje = Number(data.totalPedidos || 0);
 
-        // Verifica se houve incremento de pedido no banco
-        if (prevTotalGeral.current !== null && totalGeralAtual > prevTotalGeral.current) {
-          tocarBipNotificacao();
+          // Verifica se houve incremento de pedido no banco
+          if (prevTotalGeral.current !== null && totalGeralAtual > prevTotalGeral.current) {
+            tocarBipNotificacao();
 
-          const ultimo = data.ultimoPedido || {};
-          const nomeCliente = ultimo.cliente || "Cliente";
-          const dataRetirada = ultimo.dataRetirada || "Amanhã";
-          const horaRetirada = ultimo.horaRetirada || "--:--"; 
+            const ultimo = data.ultimoPedido || {};
+            const nomeCliente = ultimo.cliente || "Cliente";
+            const dataRetirada = ultimo.dataRetirada || "Amanhã";
+            const horaRetirada = ultimo.horaRetirada || "--:--"; 
 
-          // Captura com segurança seja 'valor' ou 'valor_total'
-          const valorBruto = ultimo.valor ?? ultimo.valor_total ?? 0;
-          const valorTotal = Number(valorBruto).toFixed(2).replace('.', ',');
-          
-          setNotifications((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              title: `Novo pedido de ${nomeCliente}!`, 
-              sub: `Retirada: ${dataRetirada} às ${horaRetirada} • R$ ${valorTotal}`
+            // Pega a data no formato YYYY-MM-DD vinda do banco (data_entrega)
+            const rawData = ultimo.data_entrega || ultimo.dataEntregaISO;
+            const dataISO = rawData ? String(rawData).split(' ')[0] : null;
+
+            // 🔴 INCREMENTA O PEDIDO NÃO LIDO DAQUELA DATA ESPECÍFICA
+            if (dataISO) {
+              setPedidosNaoLidosPorData((prev) => ({
+                ...prev,
+                [dataISO]: (prev[dataISO] || 0) + 1
+              }));
             }
-          ]);
-        }
 
-        prevTotalGeral.current = totalGeralAtual;
-        setPedidosCount(pedidosHoje);
+            // Captura com segurança seja 'valor' ou 'valor_total'
+            const valorBruto = ultimo.valor ?? ultimo.valor_total ?? 0;
+            const valorTotal = Number(valorBruto).toFixed(2).replace('.', ',');
+            
+            setNotifications((prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                title: `Novo pedido de ${nomeCliente}!`, 
+                sub: `Retirada: ${dataRetirada} às ${horaRetirada} • R$ ${valorTotal}`
+              }
+            ]);
+          }
 
-        if (data.topDoDia) {
-          setTopDoDia({
-            nome: data.topDoDia.nome || "—",
-            qtd: data.topDoDia.vendas || 0
-          });
+          prevTotalGeral.current = totalGeralAtual;
+          setPedidosCount(pedidosHoje);
+
+          if (data.topDoDia) {
+            setTopDoDia({
+              nome: data.topDoDia.nome || "—",
+              qtd: data.topDoDia.vendas || 0
+            });
+          }
         }
+      } catch (err) {
+        console.error("Erro ao buscar dados reais do MySQL:", err);
       }
-    } catch (err) {
-      console.error("Erro ao buscar dados reais do MySQL:", err);
-    }
-  };
+    };
 
-  carregarDashboard();
-  const interval = setInterval(carregarDashboard, 10000);
-  return () => clearInterval(interval);
-}, []);
+    carregarDashboard();
+    const interval = setInterval(carregarDashboard, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div 
@@ -446,9 +472,11 @@ export default function Admin({ shopMode, setShopMode }) {
           </div>
         )}
 
-        {/* === ABA PEDIDOS DO DIA === */}
+        {/* --- ABA PEDIDOS DO DIA --- */}
         {activeTab === 'pedidos' && (
-          <AbaPedidos />
+          <AbaPedidos 
+            onVisualizarData={marcarDataComoLida}
+          />
         )}
 
         {/* === ABA CARDÁPIO === */}
@@ -479,16 +507,20 @@ export default function Admin({ shopMode, setShopMode }) {
           <span className="text-[10px] font-medium">Operação</span>
         </button>
 
+        {/* BOTÃO DE PEDIDOS COM O NOVO CONTADOR DINÂMICO */}
         <button 
           onClick={() => setActiveTab('pedidos')}
           className={`flex flex-col items-center gap-1 relative ${activeTab === 'pedidos' ? 'text-[#E63946]' : 'text-gray-400'}`}
         >
           <ShoppingBag size={20} />
-          {pedidosCount > 0 && (
-            <span className="absolute -top-1 right-2 bg-[#E63946] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full">
-              {pedidosCount}
+    
+          {/* Exibe o badge apenas se houver pedidos não lidos (> 0) */}
+          {totalPedidosNaoLidos > 0 && (
+            <span className="absolute -top-1 right-2 bg-[#E63946] text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full animate-bounce">
+              {totalPedidosNaoLidos}
             </span>
           )}
+    
           <span className="text-[10px] font-medium">Pedidos</span>
         </button>
 

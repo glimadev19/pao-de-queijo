@@ -20,7 +20,7 @@ const hojeISO = () => {
   return `${ano}-${mes}-${dia}`;
 };
 
-export default function AbaPedidos() {
+export default function AbaPedidos({ onVisualizarData }) {
   const [pedidos, setPedidos] = useState([]);
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [dataSelecionada, setDataSelecionada] = useState(hojeISO());
@@ -66,6 +66,11 @@ export default function AbaPedidos() {
   };
 
   useEffect(() => {
+
+    if (dataSelecionada && onVisualizarData) {
+      onVisualizarData(dataSelecionada);
+    }
+
     buscarPedidos();
     buscarDatasComPedidos();
 
@@ -75,7 +80,7 @@ export default function AbaPedidos() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [dataSelecionada]);
+  }, [dataSelecionada, onVisualizarData]);
 
   // Função para alterar status
   const alterarStatus = async (id, novoStatus) => {
@@ -227,6 +232,11 @@ export default function AbaPedidos() {
                       onClick={() => {
                         setDataSelecionada(item.iso);
                         setMostrarCalendario(false);
+                        
+                        // 🔴 GATILHO 1: Notifica o Admin que esta data foi visualizada
+                        if (onVisualizarData) {
+                          onVisualizarData(item.iso);
+                        }
                       }}
                       className={`relative py-1.5 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center ${
                         selecionado
@@ -253,8 +263,14 @@ export default function AbaPedidos() {
               <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between">
                 <button
                   onClick={() => {
-                    setDataSelecionada(hojeISO());
+                    const hoje = hojeISO();
+                    setDataSelecionada(hoje);
                     setMostrarCalendario(false);
+
+                    // 🔴 GATILHO 2: Notifica o Admin ao voltar para a data de Hoje
+                    if (onVisualizarData) {
+                      onVisualizarData(hoje);
+                    }
                   }}
                   className="text-[11px] font-bold text-[#E63946] hover:underline"
                 >

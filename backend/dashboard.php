@@ -63,6 +63,7 @@ try {
     if ($ultimo) {
         $dadosUltimoPedido = [
             "cliente"      => $ultimo['nome_cliente'] ?? 'Cliente',
+            "data_entrega" => $ultimo['data_entrega'], // 🔴 ADICIONADO: Envia a data YYYY-MM-DD exata para o React
             "dataRetirada" => !empty($ultimo['data_entrega']) ? date('d/m/Y', strtotime($ultimo['data_entrega'])) : 'Hoje',
             "horaRetirada" => !empty($ultimo['hora_entrega']) ? date('H:i', strtotime($ultimo['hora_entrega'])) : '--:--',
             "valor"        => (float)$ultimo['valor_total']
